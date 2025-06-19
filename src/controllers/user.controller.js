@@ -2,7 +2,7 @@ import {asyncHandler} from "../utils/asyncHandler.js"
 import {ApiError} from "../utils/apiError.js"
 import {User} from "../models/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
-import {ApiResponse} from "../utils/apiResponse"
+import {ApiResponse} from "../utils/apiResponse.js"
 
 const registerUser = asyncHandler(async (req, res)=>{
  
@@ -13,12 +13,12 @@ const registerUser = asyncHandler(async (req, res)=>{
     if([username, email, fullName, password]
         .some((field)=> field.trim()===""))
         {
-            return new ApiError(400, "All fields are required")
+            throw new ApiError(400, "All fields are required")
         }
     
     // check if user already exists: username, email
 
-    const existedUser = User.findOne({
+    const existedUser = await User.findOne({
         $or:[{username}, {email}]
     })
     if (existedUser) {
@@ -26,18 +26,24 @@ const registerUser = asyncHandler(async (req, res)=>{
     }
     
     // check for images, check for avatar
+    // console.log(req.files);  
+    
     const avatarLocalPath = req.files?.avatar[0]?.path
-    const coverLocalPath = req.files?.coverImage[0]?.path
+    const coverLocalPath = req.files?.coverImage?.[0]?.path
 
+    // console.log(coverLocalPath);
+    
     if(!avatarLocalPath)
     {
         throw new ApiError(400,"Avatar File is required")
     }
 
     // upload them to cloudinary, avatar
-    const avatar = uploadOnCloudinary(avatarLocalPath)
-    const coverImage = uploadOnCloudinary(coverLocalPath)
-
+    const avatar = await uploadOnCloudinary(avatarLocalPath)
+    const coverImage = await uploadOnCloudinary(coverLocalPath)
+    
+    // console.log(coverImage);
+    
     if(!avatar)
     {
         throw new ApiError(400,"Avatar File is required")
@@ -45,6 +51,7 @@ const registerUser = asyncHandler(async (req, res)=>{
     
     // create user object - create entry in db
     const user = await User.create({
+        fullName,
         username: username.toLowerCase(),
         email,
         password, 
@@ -53,7 +60,7 @@ const registerUser = asyncHandler(async (req, res)=>{
     })
 
     // remove password and refresh token field from response
-    const createdUser = User.findById(user._id).select(
+    const createdUser = await User.findById(user._id).select(
         "-password -refreshToken"
     )
 
