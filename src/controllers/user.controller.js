@@ -11,17 +11,19 @@ const generateAccessAndRefreshTokens = async (userId) => {
     const refreshToken = user.generateRefreshToken()
 
     user.refreshToken = refreshToken
-    user.save({ validateBeforeSave: false })
+    await user.save({ validateBeforeSave: false })
 
     return { accessToken, refreshToken }
 }
 
 const registerUser = asyncHandler(async (req, res) => {
 
+    console.log(req);
+    
     // get user details from frontend
     const { username, email, fullName, password } = req.body;
-
-    // validation - not empty
+    
+    // validation -  not empty
     if ([username, email, fullName, password]
         .some((field) => field.trim() === "")) {
         throw new ApiError(400, "All fields are required")
@@ -37,12 +39,12 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     // check for images, check for avatar
-    // console.log(req.files);  
+    console.log(req.files);  
 
     const avatarLocalPath = req.files?.avatar[0]?.path
     const coverLocalPath = req.files?.coverImage?.[0]?.path
 
-    // console.log(coverLocalPath);
+    console.log(coverLocalPath);
 
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar File is required")
@@ -100,7 +102,7 @@ const loginUser = asyncHandler(async (req, res) => {
     }
 
     //password check
-    const isPasswordCorrect = user.isPasswordCorrect(password)
+    const isPasswordCorrect = await user.isPasswordCorrect(password)
     if (!isPasswordCorrect) {
         throw new ApiError(404, "Invalid Credentials")
     }
