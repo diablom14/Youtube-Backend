@@ -339,6 +339,78 @@ const updateCoverImage = asyncHandler(async (req, res)=>{
         "coverImage is successfully updated"
     ))
 })
+
+const getUserChannelProfile = asyncHandler(async (req, res)=>{
+    // get username 
+    const {username} = req.params
+
+    // group data for the username and aggregate for subscriber
+    const channel = await User.aggregate([
+        {
+            $match:"username"
+        },
+        {
+            $lookup:{
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as:"subscribers"
+            }
+        },
+        {
+            $lookup:{
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as:"subscribedTo"
+            }
+        },
+        {
+            $addFields:{
+                subscribersCount : {
+                    $size: "$subscribers"
+                },
+                subscribedToCount:{
+                   $size:  "$subscribedTo"
+                },
+                isSubscribed:{
+                    $cond:{
+                        if: req.user._id == "$subscribers.subscriber",
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+
+        {
+            $project:
+            {
+                fullName:1,
+                username:1,
+                avatar:1,
+                coverImage:1,
+                subscribersCount:1,
+                subscribedToCount:1,
+                isSubscribed:1
+            }
+        }
+    ])
+    
+    
+    // and subscribed count
+    // Project only the values needed for front end 
+    // send response
+
+    console.log(channel);
+    
+    res
+    .status(200)
+    .json(
+        new ApiResponse(200, channel[0], "Channel data successfully fetched")
+    )
+})
+
 export {
     registerUser,
     loginUser,
@@ -348,5 +420,6 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateAvatar,
-    updateCoverImage
+    updateCoverImage,
+    getUserChannelProfile
 }
