@@ -201,9 +201,152 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         new ApiResponse(200, "Access token successfully generated")
     )
 })
+
+const changePassword = asyncHandler(async (req, res)=>{
+    // Take old password and new password from user 
+    const {oldPassword, newPassword} = req.body;
+
+    // check if the old password is same as in our database (auth middle ware)
+    const user = await User.findById(req.user._id)
+    const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+    if(!isPasswordCorrect)
+    {
+        throw new ApiError(400, "Enter correct old password")
+    }
+    
+    // change the current password to new password in the database and save
+    user.password = newPassword
+    user.save({ validateBeforeSave:false })
+
+    // send response
+    res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password is successfully changed"))
+})
+
+const getCurrentUser = asyncHandler(async(req, res)=>{
+    res
+    .status(200)
+    .json(new ApiResponse(
+        200,
+        req.user,
+        "User is successfully fetched"
+    ))
+})
+
+const updateAccountDetails = asyncHandler(async (req, res)=>{
+    // Take the update fields
+    const {fullName, email} = req.body;
+
+    // find user by id using auth middleware and update it
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                fullName: fullName,
+                email: email
+            }
+        },
+        {new:true}
+    ).select("-password")
+
+    // send response
+    res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            user,
+            "Account details successfully updated"
+        )
+    )
+})
+
+const updateAvatar = asyncHandler(async (req, res)=>{
+    // get file using multer
+    const avatarLocalPath = req.file?.avatar
+    if(!avatarLocalPath)
+    {
+        throw new ApiError(400, "File has not been uploaded successfully")
+    }
+
+    // upload on cloudinary
+    const avatar = await uploadOnCloudinary(avatarLocalPath)
+    if(!avatar.url)
+    {
+        throw new ApiError(500, "Couldn't upload on cloudinary")
+    }
+
+    // update the user
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set:
+            {
+                avatar: avatar.url    
+            }
+        },
+        {
+            new:true
+        }
+    ).select("-password")
+    
+    // send response
+    res
+    .status(200)
+    .json(new ApiResponse(
+        200,
+        user,
+        "Avatar is successfully updated"
+    ))
+})
+
+const updateCoverImage = asyncHandler(async (req, res)=>{
+    // get file using multer
+    const coverImageLocalPath = req.file?.coverImage
+    if(!coverImageLocalPath)
+    {
+        throw new ApiError(400, "File has not been uploaded successfully")
+    }
+
+    // upload on cloudinary
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+    if(!coverImage.url)
+    {
+        throw new ApiError(500, "Couldn't upload on cloudinary")
+    }
+
+    // update the user
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set:
+            {
+                coverImage: coverImage.url    
+            }
+        },
+        {
+            new:true
+        }
+    ).select("-password")
+    
+    // send response
+    res
+    .status(200)
+    .json(new ApiResponse(
+        200,
+        user,
+        "coverImage is successfully updated"
+    ))
+})
 export {
     registerUser,
     loginUser,
     logoutUser,
-    refreshAccessToken
+    refreshAccessToken,
+    changePassword,
+    getCurrentUser,
+    updateAccountDetails,
+    updateAvatar,
+    updateCoverImage
 }
