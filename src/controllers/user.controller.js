@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/apiResponse.js"
 import jwt, { decode } from "jsonwebtoken"
+import mongoose from "mongoose"
 
 const generateAccessAndRefreshTokens = async (userId) => {
     const user = await User.findById(userId)
@@ -343,11 +344,14 @@ const updateCoverImage = asyncHandler(async (req, res)=>{
 const getUserChannelProfile = asyncHandler(async (req, res)=>{
     // get username 
     const {username} = req.params
-
+    if(!username)
+    {
+        throw new ApiError(400, "Username is not available to get user channel profile")
+    }
     // group data for the username and aggregate for subscriber
     const channel = await User.aggregate([
         {
-            $match:"username"
+            $match:username.toLowerCase()
         },
         {
             $lookup:{
@@ -411,6 +415,53 @@ const getUserChannelProfile = asyncHandler(async (req, res)=>{
     )
 })
 
+const getUserWatchHistory = asyncHandler(async(req, res)=>{
+    const user = await User.aggregate([
+        {
+            $match: new mongoose.Types.ObjectId(req.user._id)
+        },
+        {
+            $lookup:{
+                from: "videos",
+                localField:"watchHistory",
+                foreignField:"_id",
+                as:"watchHistory",
+                pipeline:[
+                    {
+                        $lookup:{
+                            from:"users",
+                            localField:"owner",
+                            foreignField:"_id",
+                            as:"owner"
+                        }
+                    },
+                    {
+                        $project:
+                        {
+                            username:1,
+                            fullName:1,
+                            avatar:1   
+                        }
+                    },
+                    {
+                        $addFields:{
+                            owner:{
+                                $first:"$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+
+    res
+    .status(200)
+    .json(
+        new ApiResponse(200, user[0].watchHistory, "User watch history fetched successfully")
+    )
+})
+
 export {
     registerUser,
     loginUser,
@@ -421,5 +472,6 @@ export {
     updateAccountDetails,
     updateAvatar,
     updateCoverImage,
-    getUserChannelProfile
+    getUserChannelProfile,
+    getUserWatchHistory
 }
